@@ -30,7 +30,7 @@ Researched 2026-08-22: Minesweeper.now, Minesweeper.org, MinesweeperHub, Mineswe
 ToolGenie, Minesweeper Blast, minesweeperplus.site, Google Minesweeper, Speed Sweeper (Steam).
 
 Shared by the well-regarded ones: safe first click, chording, precise timer, **no-guess
-(legally solvable) boards**, daily challenges, leaderboards, keyboard + touch support.
+(logically solvable) boards**, daily challenges, leaderboards, keyboard + touch support.
 No-guess board generation is the most-cited differentiator in 2025 comparisons — the original
 Windows game could force 50/50 guesses.
 
@@ -170,8 +170,8 @@ zone, using the seeded RNG.
 
 ### `best` (persisted)
 Keyed map: `{ 'beginner': { time, threeBV }, 'intermediate': {...}, 'expert': {...},
-'custom-9x9x10': {...}, ... , 'daily-20260822-beginner': {...} }`
-Best = lowest time; ties broken by earlier 3BV is not tracked (first win at that time stands).
+'custom-9x9x10': {...}, 'daily-20260822-beginner': {...} }`
+Best = lowest time. If the same time is achieved again, the first record stands.
 
 ### Storage
 Two `localStorage` keys: `minesweeper.settings`, `minesweeper.best`. Read on bootstrap with
