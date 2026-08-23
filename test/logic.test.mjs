@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32, createGrid, neighbors, clampMines, placeMines, reveal, chordTargets, cycleMarker } from '../js/logic.js';
+import { mulberry32, createGrid, neighbors, clampMines, placeMines, reveal, chordTargets, cycleMarker, isWin, cloneGrid, threeBV } from '../js/logic.js';
 
 test('mulberry32 is deterministic for a given seed', () => {
   const a = mulberry32(42);
@@ -166,4 +166,34 @@ test('chordTargets: revealed zero cell → [] (not chordable)', () => {
 test('chordTargets: hidden cell → []', () => {
   const g = board(['.', '.']);
   assert.deepEqual(chordTargets(g, 0), []);
+});
+
+test('isWin: all safe cells revealed → true', () => {
+  assert.equal(isWin(board(['000', '011', '01#'])), true);
+});
+
+test('isWin: hidden safe cell remains → false', () => {
+  assert.equal(isWin(board(['0', '.', '#'])), false);
+});
+
+test('cloneGrid: independent copy', () => {
+  const g = board(['0', '.']);
+  const c = cloneGrid(g);
+  c.cells[1].revealed = true;
+  assert.equal(g.cells[1].revealed, false);
+});
+
+test('threeBV: two isolated zero regions → 2 clicks', () => {
+  assert.equal(threeBV(board(['.#.', '.#.', '.#.'], false)), 2);
+});
+
+test('threeBV: single flood opens everything → 1 click', () => {
+  assert.equal(threeBV(board(MAP_SOLVE, false)), 1);
+});
+
+test('threeBV: does not mutate the input board', () => {
+  const g = board(['..#', '...', '#..'], false);
+  const before = g.cells.map((c) => c.revealed);
+  threeBV(g);
+  assert.deepEqual(g.cells.map((c) => c.revealed), before);
 });

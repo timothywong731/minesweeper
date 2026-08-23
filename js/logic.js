@@ -106,3 +106,25 @@ export function chordTargets(grid, i) {
 export function cycleMarker(marker) {
   return marker === 'none' ? 'flag' : marker === 'flag' ? 'q' : 'none';
 }
+
+export function isWin(grid) {
+  return grid.cells.every((c) => c.mine || c.revealed);
+}
+
+export function cloneGrid(grid) {
+  return { rows: grid.rows, cols: grid.cols, cells: grid.cells.map((c) => ({ ...c })) };
+}
+
+// 3BV (biggest first-move value proxy): minimum clicks to open all safe
+// cells — each click opens one connected zero-region plus its numbered border.
+export function threeBV(grid) {
+  const g = cloneGrid(grid);
+  let clicks = 0;
+  for (let i = 0; i < g.cells.length; i++) {
+    const c = g.cells[i];
+    if (c.mine || c.revealed) continue;
+    clicks++;
+    reveal(g, i);
+  }
+  return clicks;
+}
