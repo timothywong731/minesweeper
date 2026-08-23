@@ -43,3 +43,24 @@ export function clampMines(rows, cols, n) {
   const max = rows * cols - 9;
   return Math.max(1, Math.min(Math.round(n), max));
 }
+
+// Choose `mines` cells uniformly from everything outside safeIndex's 3x3 zone
+// (Fisher-Yates partial shuffle over the eligible pool), then count neighbors.
+export function placeMines(grid, seed, safeIndex, mines) {
+  const rng = mulberry32(seed);
+  const n = grid.rows * grid.cols;
+  const excluded = new Set([safeIndex, ...neighbors(grid, safeIndex)]);
+  const pool = [];
+  for (let i = 0; i < n; i++) if (!excluded.has(i)) pool.push(i);
+  for (let k = 0; k < mines; k++) {
+    const j = k + Math.floor(rng() * (pool.length - k));
+    [pool[k], pool[j]] = [pool[j], pool[k]];
+  }
+  for (const i of pool.slice(0, mines)) grid.cells[i].mine = true;
+  for (let i = 0; i < n; i++) {
+    if (!grid.cells[i].mine) {
+      grid.cells[i].adjacent = neighbors(grid, i).filter((j) => grid.cells[j].mine).length;
+    }
+  }
+  return grid;
+}
