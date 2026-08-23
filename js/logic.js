@@ -64,3 +64,45 @@ export function placeMines(grid, seed, safeIndex, mines) {
   }
   return grid;
 }
+
+// Reveal cell i. Zero cells cascade through their safe neighborhood;
+// numbered cells stop the cascade. Mines are never opened by a cascade.
+export function reveal(grid, i) {
+  const cell = grid.cells[i];
+  if (cell.revealed) return { opened: [], exploded: false };
+  if (cell.mine) {
+    cell.revealed = true;
+    return { opened: [i], exploded: true };
+  }
+  const opened = [];
+  const stack = [i];
+  while (stack.length) {
+    const j = stack.pop();
+    const cj = grid.cells[j];
+    if (cj.revealed || cj.mine) continue;
+    cj.revealed = true;
+    opened.push(j);
+    if (cj.adjacent === 0) {
+      for (const k of neighbors(grid, j)) {
+        const ck = grid.cells[k];
+        if (!ck.revealed && !ck.mine) stack.push(k);
+      }
+    }
+  }
+  return { opened, exploded: false };
+}
+
+// Classic chord: revealed number with exactly `number` flags around it
+// opens every remaining unmarked neighbor. Question marks count as neither.
+export function chordTargets(grid, i) {
+  const cell = grid.cells[i];
+  if (!cell.revealed || cell.adjacent === 0) return [];
+  const ns = neighbors(grid, i);
+  const flags = ns.filter((j) => grid.cells[j].marker === 'flag').length;
+  if (flags !== cell.adjacent) return [];
+  return ns.filter((j) => !grid.cells[j].revealed && grid.cells[j].marker === 'none');
+}
+
+export function cycleMarker(marker) {
+  return marker === 'none' ? 'flag' : marker === 'flag' ? 'q' : 'none';
+}
