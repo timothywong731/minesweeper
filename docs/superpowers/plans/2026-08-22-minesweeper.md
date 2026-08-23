@@ -583,9 +583,10 @@ Test helper — add once to `test/logic.test.mjs` (used by tasks 4, 5, 6, 7):
 
 ```js
 // Build a board from an ASCII map.
-// '.' hidden safe · '#' hidden mine · '0' revealed zero · '1'-'8' revealed number
-// 'F' hidden flagged
-function board(map) {
+// '.' hidden safe · '#' hidden mine · 'F' hidden flagged · '0'-'8' numbered cell.
+// digitsRevealed (default): numbered cells are revealed; pass false for
+// pre-click boards where numbers are still hidden.
+function board(map, digitsRevealed = true) {
   const rows = map.length;
   const cols = map[0].length;
   const g = createGrid(rows, cols);
@@ -596,7 +597,7 @@ function board(map) {
       if (ch === '#') { cell.mine = true; continue; }
       if (ch === 'F') { cell.marker = 'flag'; continue; }
       const n = parseInt(ch, 10);
-      if (n >= 0) { cell.revealed = true; cell.adjacent = n; }
+      if (n >= 0) { cell.adjacent = n; if (digitsRevealed) cell.revealed = true; }
     }
   }
   return g;
@@ -613,7 +614,7 @@ Add `reveal` to the import. Append:
 const MAP_SOLVE = ['000', '011', '01#'];   // mine at (2,2); top row opened by first click
 
 test('reveal: zero flood opens region + numbered border, never mines', () => {
-  const g = board(MAP_SOLVE);
+  const g = board(MAP_SOLVE, false);   // pre-click: numbers still hidden
   const { opened, exploded } = reveal(g, 0);
   assert.equal(exploded, false);
   assert.deepEqual([...opened].sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7]);
@@ -687,7 +688,7 @@ export function reveal(grid, i) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `node --test test/logic.test.mjs`
-Expected: PASS (15 tests)
+Expected: PASS (14 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -724,7 +725,7 @@ test('cycleMarker: none → flag → q → none', () => {
 const MAP_CHORD = ['.', '2', '.'];  // 1 col wide is invalid; use 3x3 below instead
 const MAP_CHORD2 = [
   '.2.',
-  'F.F',
+  'F2F',
   '.2.',
 ];
 
@@ -780,7 +781,7 @@ export function cycleMarker(marker) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `node --test test/logic.test.mjs`
-Expected: PASS (21 tests)
+Expected: PASS (19 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -825,15 +826,15 @@ test('cloneGrid: independent copy', () => {
 });
 
 test('threeBV: two isolated zero regions → 2 clicks', () => {
-  assert.equal(threeBV(board(['..#', '...', '#..'])), 2);
+  assert.equal(threeBV(board(['.#.', '.#.', '.#.'], false)), 2);
 });
 
 test('threeBV: single flood opens everything → 1 click', () => {
-  assert.equal(threeBV(board(['000', '011', '01#'])), 1);
+  assert.equal(threeBV(board(MAP_SOLVE, false)), 1);
 });
 
 test('threeBV: does not mutate the input board', () => {
-  const g = board(['..#', '...', '#..']);
+  const g = board(['..#', '...', '#..'], false);
   const before = g.cells.map((c) => c.revealed);
   threeBV(g);
   assert.deepEqual(g.cells.map((c) => c.revealed), before);
@@ -876,7 +877,7 @@ export function threeBV(grid) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `node --test test/logic.test.mjs`
-Expected: PASS (27 tests)
+Expected: PASS (25 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -924,7 +925,7 @@ test('solverSolves: board requiring a guess → false', () => {
 });
 
 test('solverSolves: logically solvable board → true', () => {
-  const g = board(MAP_SOLVE);   // flood + "1 with one unknown → flag" solves it
+  const g = board(MAP_SOLVE, false);   // pre-click board; flood from cell 0 opens every safe cell
   assert.equal(solverSolves(g, 0), true);
 });
 
@@ -1020,7 +1021,7 @@ export function generate({ rows, cols, mines, mode, seed, safeIndex, maxAttempts
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `node --test test/logic.test.mjs`
-Expected: PASS (32 tests). If `generate noguess` is slow, run once with `time node --test test/logic.test.mjs` — the expert board should generate in well under a second; if it isn't, the solver has a loop bug (check the `progress` flag), don't optimize.
+Expected: PASS (30 tests). If `generate noguess` is slow, run once with `time node --test test/logic.test.mjs` — the expert board should generate in well under a second; if it isn't, the solver has a loop bug (check the `progress` flag), don't optimize.
 
 - [ ] **Step 5: Commit**
 
@@ -1659,7 +1660,7 @@ test('spec §4.4: chord with question-mark neighbors ignores the ? cells', () =>
   g.cells[2].marker = 'flag';
   g.cells[1].marker = 'q';
   g.cells[3].marker = 'q';
-  assert.deepEqual(chordTargets(g, 4), [5, 7, 8]);   // only the truly-unmarked hidden cells
+  assert.deepEqual(chordTargets(g, 4), [5, 6, 7, 8]);   // cells 5,6,7,8 unmarked & hidden   // only the truly-unmarked hidden cells
 });
 
 test('spec §4.4: revealed number with wrong flag count is not chordable', () => {
@@ -1673,7 +1674,7 @@ test('spec §4.4: revealed number with wrong flag count is not chordable', () =>
 ```
 
 Run: `node --test test/logic.test.mjs`
-Expected: all PASS (35 tests). If the chord test fails, `chordTargets` must count only `marker === 'flag'` neighbors — fix in `js/logic.js`.
+Expected: all PASS (33 tests). If the chord test fails, `chordTargets` must count only `marker === 'flag'` neighbors — fix in `js/logic.js`.
 
 - [ ] **Step 2: Manual spec matrix (browser)**
 
