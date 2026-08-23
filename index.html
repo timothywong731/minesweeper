@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-theme="classic">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minesweeper</title>
+  <meta name="description" content="Classic Minesweeper in your browser — no-guess boards, daily challenge, chording, and the original smiley.">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./favicon.svg">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="bar">
+      <select id="difficulty" aria-label="Difficulty">
+        <option value="beginner">Beginner</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="expert">Expert</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <select id="mode" aria-label="Board mode">
+        <option value="classic">Random</option>
+        <option value="noguess">No-guess</option>
+      </select>
+      <button id="daily" type="button">Daily</button>
+      <span class="spacer"></span>
+      <button id="sound" type="button" aria-pressed="true" aria-label="Toggle sound">🔊</button>
+      <button id="theme" type="button" aria-pressed="false" aria-label="Toggle theme">🌗</button>
+    </header>
+
+    <form id="custom" class="hidden" autocomplete="off">
+      <label>Rows <input id="c-rows" type="number" min="5" max="30" value="16"></label>
+      <label>Cols <input id="c-cols" type="number" min="5" max="30" value="16"></label>
+      <label>Mines <input id="c-mines" type="number" min="1" max="200" value="40"></label>
+      <button type="submit">Play</button>
+    </form>
+
+    <section class="hud">
+      <div class="led" id="mine-counter" aria-label="Mines remaining">010</div>
+      <button id="smiley" type="button" aria-label="New game">🙂</button>
+      <div class="led" id="timer" aria-label="Time in seconds">000</div>
+    </section>
+
+    <div class="well">
+      <div id="board" class="board" aria-label="Minesweeper board"></div>
+    </div>
+
+    <p id="status" class="status" role="status"></p>
+  </main>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
