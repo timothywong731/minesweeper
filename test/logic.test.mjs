@@ -252,3 +252,34 @@ test('generate noguess: exhausted attempts still yield a valid board', () => {
     if (grid.cells[i].mine) assert(!safe.has(i));
   }
 });
+
+test('spec §9: first click is never a mine (1000 seeds, all cells on a 9x9)', () => {
+  for (let seed = 0; seed < 1000; seed++) {
+    for (let i = 0; i < 81; i += 7) {              // sample 12 cells per seed
+      const { grid } = generate({ rows: 9, cols: 9, mines: 10, mode: 'noguess', seed, safeIndex: i });
+      assert.equal(grid.cells[i].mine, false);
+    }
+  }
+});
+
+test('spec §4.4: chord with question-mark neighbors ignores the ? cells', () => {
+  const g = createGrid(3, 3);
+  g.cells[4].revealed = true;
+  g.cells[4].adjacent = 2;
+  g.cells[0].mine = true;
+  g.cells[2].mine = true;
+  g.cells[0].marker = 'flag';
+  g.cells[2].marker = 'flag';
+  g.cells[1].marker = 'q';
+  g.cells[3].marker = 'q';
+  assert.deepEqual(chordTargets(g, 4), [5, 6, 7, 8]);   // cells 5,6,7,8 unmarked & hidden   // only the truly-unmarked hidden cells
+});
+
+test('spec §4.4: revealed number with wrong flag count is not chordable', () => {
+  const g = createGrid(1, 3);
+  g.cells[1].revealed = true;
+  g.cells[1].adjacent = 2;
+  g.cells[0].mine = true;
+  g.cells[0].marker = 'flag';
+  assert.deepEqual(chordTargets(g, 1), []);
+});
