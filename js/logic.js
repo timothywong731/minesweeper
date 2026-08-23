@@ -128,3 +128,44 @@ export function threeBV(grid) {
   }
   return clicks;
 }
+
+// Perfect player: flood fills + two local inferences only (no case-splitting).
+// Returns true iff it can clear the board starting from `start`.
+export function solverSolves(grid, start) {
+  const g = cloneGrid(grid);
+  reveal(g, start);
+  let progress = true;
+  while (progress) {
+    progress = false;
+    for (let i = 0; i < g.cells.length; i++) {
+      const c = g.cells[i];
+      if (!c.revealed || c.adjacent === 0) continue;
+      const ns = neighbors(g, i);
+      const unknowns = ns.filter((j) => !g.cells[j].revealed && g.cells[j].marker === 'none');
+      const flagged = ns.filter((j) => g.cells[j].marker === 'flag').length;
+      const needed = c.adjacent - flagged;
+      if (unknowns.length === 0) {
+        if (needed > 0) return false;      // inconsistent board
+        continue;
+      }
+      if (needed === 0) {
+        for (const j of unknowns) { reveal(g, j); progress = true; }
+      } else if (needed === unknowns.length) {
+        for (const j of unknowns) { g.cells[j].marker = 'flag'; progress = true; }
+      }
+    }
+  }
+  return isWin(g);
+}
+
+export function generate({ rows, cols, mines, mode, seed, safeIndex, maxAttempts = 10000 }) {
+  const attempt = (s) => placeMines(createGrid(rows, cols), s, safeIndex, mines);
+  if (mode === 'noguess') {
+    for (let s = seed; s < seed + maxAttempts; s++) {
+      const grid = attempt(s);
+      if (solverSolves(grid, safeIndex)) return { grid, noGuessSolved: true };
+    }
+    return { grid: attempt(seed), noGuessSolved: false };   // spec: best-effort, game stays playable
+  }
+  return { grid: attempt(seed), noGuessSolved: true };
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32, createGrid, neighbors, clampMines, placeMines, reveal, chordTargets, cycleMarker, isWin, cloneGrid, threeBV } from '../js/logic.js';
+import { mulberry32, createGrid, neighbors, clampMines, placeMines, reveal, chordTargets, cycleMarker, isWin, cloneGrid, threeBV, solverSolves, generate } from '../js/logic.js';
 
 test('mulberry32 is deterministic for a given seed', () => {
   const a = mulberry32(42);
@@ -196,4 +196,59 @@ test('threeBV: does not mutate the input board', () => {
   const before = g.cells.map((c) => c.revealed);
   threeBV(g);
   assert.deepEqual(g.cells.map((c) => c.revealed), before);
+});
+
+// Valid board: mines at (1,0) and (1,2). Top row is revealed 1,2,1.
+// Local logic can't decide between (1,0)/(1,1)/(1,2) — a 50/50 wall.
+const MAP_STUCK = ['121', '...', '...'];
+
+// Build it with mines explicit (the map helper treats '#' as hidden mine):
+const STUCK_MAP = [
+  '121',
+  '#.#',
+  '...',
+];
+
+test('solverSolves: board requiring a guess → false', () => {
+  const g = board(STUCK_MAP);
+  assert.equal(solverSolves(g, 0), false);
+});
+
+test('solverSolves: logically solvable board → true', () => {
+  const g = board(MAP_SOLVE, false);   // pre-click board; flood from cell 0 opens every safe cell
+  assert.equal(solverSolves(g, 0), true);
+});
+
+test('generate classic: exact mines, safe zone clear', () => {
+  const { grid } = generate({ rows: 9, cols: 9, mines: 10, mode: 'classic', seed: 99, safeIndex: 40 });
+  assert.equal(grid.cells.filter((c) => c.mine).length, 10);
+  const safe = new Set([40, ...neighbors(grid, 40)]);
+  for (let i = 0; i < grid.cells.length; i++) {
+    if (grid.cells[i].mine) assert(!safe.has(i));
+  }
+});
+
+test('generate noguess: returned board always passes the solver', () => {
+  const cases = [[9, 9, 10], [16, 16, 40], [16, 30, 99]];
+  for (const [rows, cols, mines] of cases) {
+    const start = Math.floor((rows * cols) / 2);
+    const { grid, noGuessSolved } = generate({
+      rows, cols, mines, mode: 'noguess', seed: 1, safeIndex: start,
+    });
+    assert.equal(noGuessSolved, true);
+    assert.equal(solverSolves(grid, start), true);
+    assert.equal(grid.cells.filter((c) => c.mine).length, mines);
+  }
+});
+
+test('generate noguess: exhausted attempts still yield a valid board', () => {
+  const { grid, noGuessSolved } = generate({
+    rows: 5, cols: 5, mines: 12, mode: 'noguess', seed: 5, safeIndex: 12, maxAttempts: 1,
+  });
+  assert.equal(typeof noGuessSolved, 'boolean');
+  assert.equal(grid.cells.filter((c) => c.mine).length, 12);
+  const safe = new Set([12, ...neighbors(grid, 12)]);
+  for (let i = 0; i < grid.cells.length; i++) {
+    if (grid.cells[i].mine) assert(!safe.has(i));
+  }
 });
