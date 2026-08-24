@@ -30,7 +30,7 @@ export function saveBest(b) {
 
 export function bestKey(settings, { daily = false, date = null } = {}) {
   if (daily) return `daily-${date}-${settings.difficulty}`;
-  if (settings.difficulty === 'custom') {
+  if (settings.difficulty === 'custom' && settings.custom) {
     const c = settings.custom;
     return `custom-${c.rows}x${c.cols}x${clampMines(c.rows, c.cols, c.mines)}`;
   }
@@ -38,11 +38,12 @@ export function bestKey(settings, { daily = false, date = null } = {}) {
 }
 
 export function gridSize(settings) {
-  if (settings.difficulty === 'custom') {
+  if (settings.difficulty === 'custom' && settings.custom) {
     const c = settings.custom;
     return { rows: c.rows, cols: c.cols, mines: clampMines(c.rows, c.cols, c.mines) };
   }
-  return { ...DIFFICULTIES[settings.difficulty] };
+  // 'custom' without dimensions (form never submitted) falls back to beginner
+  return { ...(DIFFICULTIES[settings.difficulty] || DIFFICULTIES.beginner) };
 }
 
 export function dailySeed() {

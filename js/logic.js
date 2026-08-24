@@ -52,11 +52,12 @@ export function placeMines(grid, seed, safeIndex, mines) {
   const excluded = new Set([safeIndex, ...neighbors(grid, safeIndex)]);
   const pool = [];
   for (let i = 0; i < n; i++) if (!excluded.has(i)) pool.push(i);
-  for (let k = 0; k < mines; k++) {
+  const count = Math.min(mines, pool.length);   // safe zone may cover the whole board (tiny grids)
+  for (let k = 0; k < count; k++) {
     const j = k + Math.floor(rng() * (pool.length - k));
     [pool[k], pool[j]] = [pool[j], pool[k]];
   }
-  for (const i of pool.slice(0, mines)) grid.cells[i].mine = true;
+  for (const i of pool.slice(0, count)) grid.cells[i].mine = true;
   for (let i = 0; i < n; i++) {
     if (!grid.cells[i].mine) {
       grid.cells[i].adjacent = neighbors(grid, i).filter((j) => grid.cells[j].mine).length;
@@ -115,16 +116,39 @@ export function cloneGrid(grid) {
   return { rows: grid.rows, cols: grid.cols, cells: grid.cells.map((c) => ({ ...c })) };
 }
 
-// 3BV (biggest first-move value proxy): minimum clicks to open all safe
-// cells — each click opens one connected zero-region plus its numbered border.
+// 3BV (spec §4.3): minimum clicks to open all safe cells — one per
+// connected zero-region (that click also opens the region's numbered
+// border) plus one per numbered cell that borders no zero region.
+// Order-independent: computed directly, not by simulating clicks.
 export function threeBV(grid) {
-  const g = cloneGrid(grid);
+  const n = grid.cells.length;
+  const inRegion = new Array(n).fill(false);
   let clicks = 0;
-  for (let i = 0; i < g.cells.length; i++) {
-    const c = g.cells[i];
+  for (let i = 0; i < n; i++) {
+    const c = grid.cells[i];
     if (c.mine || c.revealed) continue;
-    clicks++;
-    reveal(g, i);
+    if (c.adjacent === 0) {
+      if (inRegion[i]) continue;
+      clicks++;
+      const stack = [i];
+      inRegion[i] = true;
+      while (stack.length) {
+        const j = stack.pop();
+        for (const k of neighbors(grid, j)) {
+          const ck = grid.cells[k];
+          if (!inRegion[k] && !ck.mine && !ck.revealed && ck.adjacent === 0) {
+            inRegion[k] = true;
+            stack.push(k);
+          }
+        }
+      }
+    } else {
+      const bordersZero = neighbors(grid, i).some((j) => {
+        const cj = grid.cells[j];
+        return !cj.mine && !cj.revealed && cj.adjacent === 0;
+      });
+      if (!bordersZero) clicks++;
+    }
   }
   return clicks;
 }

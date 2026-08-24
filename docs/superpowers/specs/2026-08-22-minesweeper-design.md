@@ -154,11 +154,14 @@ zone, using the seeded RNG.
 
 ### `game` object (in memory)
 ```
-{ mode: 'classic'|'noguess', difficulty: string,
-  rows, cols, mines, seed,
-  cells: [ { mine, revealed, marker: 'none'|'flag'|'q', adjacent } ],
+{ settings,        // snapshot of the persisted settings — mode/difficulty live here
+  rows, cols, mines, daily: bool, seed,
   status: 'waiting'|'playing'|'won'|'lost',
-  time: seconds, flags: count, threeBV, noGuessSolved: bool }
+  grid: null | { rows, cols,
+      cells: [ { mine, revealed, marker: 'none'|'flag'|'q', adjacent } ] },
+  time: seconds, flags: count, threeBV: int, noGuessSolved: bool,
+  explodedIndex: null | int,   // the mine that ended a lost game (rendered red)
+  onTick: fn | null }          // assigned by main/ui to redraw the HUD each second
 ```
 
 ### `settings` (persisted)
@@ -181,12 +184,13 @@ safe defaults if absent/corrupt (try/catch JSON.parse). Mid-game auto-save is **
 
 ### Look — Windows 95, faithful
 - Classic gray board in a sunken 3D well; beveled cells that flatten when revealed
-- Red LED seven-segment counters (pure CSS, no images) for mines and timer
+- Red LED-style counters (pure CSS, no images) for mines and timer
 - Smiley status button: neutral idle · surprised while a cell is hovered/pressed ·
   sunglasses on win · dead face on loss; clicking it resets
 - Classic number colors: 1 blue, 2 green, 3 red, 4 navy, 5 maroon, 6 teal, 7 black, 8 gray
-- Header row: difficulty select · mode select (Random / No-guess) · Daily button ·
-  Custom-board button (opens inline rows/cols/mines form) · sound toggle · theme toggle
+- Header row: difficulty select (with a `Custom…` option that opens the inline
+  rows/cols/mines form) · mode select (Random / No-guess) · Daily button · sound toggle ·
+  theme toggle
 
 ### Themes
 - **Classic** (default): the 95 look above

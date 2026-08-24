@@ -72,6 +72,14 @@ test('placeMines: adjacent counts match the mine layout', () => {
   }
 });
 
+test('placeMines: safe zone covering the whole board → zero mines, no crash', () => {
+  const a = placeMines(createGrid(3, 3), 1, 4, 1);
+  assert.equal(a.cells.filter((c) => c.mine).length, 0);
+  assert.ok(a.cells.every((c) => c.adjacent === 0));
+  const b = placeMines(createGrid(1, 1), 1, 0, 1);
+  assert.equal(b.cells.filter((c) => c.mine).length, 0);
+});
+
 test('placeMines: deterministic for a seed, different across seeds', () => {
   const a = placeMines(createGrid(5, 5), 123, 12, 10).cells.map((c) => c.mine);
   const b = placeMines(createGrid(5, 5), 123, 12, 10).cells.map((c) => c.mine);
@@ -196,6 +204,15 @@ test('threeBV: does not mutate the input board', () => {
   const before = g.cells.map((c) => c.revealed);
   threeBV(g);
   assert.deepEqual(g.cells.map((c) => c.revealed), before);
+});
+
+test('threeBV: minimum, not click order — numbers bordering a zero are free (spec §4.3)', () => {
+  // mines (0,0),(2,2): two zero-regions {2},{6}; all five numbers border a zero → 2, not 4
+  assert.equal(threeBV(board(['#10', '121', '01#'], false)), 2);
+  // one zero-region {(0,2),(1,2)}; number (1,0) borders no zero → 1 + 1 = 2, not 3
+  assert.equal(threeBV(board(['#1.', '110'], false)), 2);
+  // no zero regions at all: every number costs a click
+  assert.equal(threeBV(board(['#2', '2#'], false)), 2);
 });
 
 // Valid board: mines at (1,0) and (1,2). Top row is revealed 1,2,1.

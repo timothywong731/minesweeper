@@ -1,8 +1,8 @@
 // Rendering, board input, WebAudio sfx. The only module that touches the DOM.
 // Calls game.js actions; never mutates game state itself.
-import { revealCell, chordCell, toggleMarker, setMarker, countFlags, bestKey, loadBest, dailySeed } from './game.js';
+import { revealCell, chordCell, toggleMarker, setMarker, countFlags, bestKey, loadBest, dailySeed, newBoard } from './game.js';
 
-const FACE = { waiting: '🙂', playing: '🙂', won: '😎', lost: '😵' };
+const FACE = { waiting: '🙂', playing: '🙂', won: '😎', lost: '😵', surprised: '😮' };
 const LONG_PRESS_MS = 400;   // spec §4.4
 
 export function createUI(g) {
@@ -28,7 +28,18 @@ export function createUI(g) {
   function renderBoard() {
     els.board.style.setProperty('--cell-size', cellSize() + 'px');
     els.board.style.gridTemplateColumns = `repeat(${g.cols}, var(--cell-size))`;
-    if (!g.grid) { els.board.replaceChildren(); renderCursor(); return; }
+    if (!g.grid) {                      // pre-first-click: board is visible, mines don't exist yet (spec §4.1)
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < g.rows * g.cols; i++) {
+        const d = document.createElement('div');
+        d.className = 'cell';
+        d.dataset.i = i;
+        frag.appendChild(d);
+      }
+      els.board.replaceChildren(frag);
+      renderCursor();
+      return;
+    }
     const frag = document.createDocumentFragment();
     for (let i = 0; i < g.grid.cells.length; i++) {
       const c = g.grid.cells[i];
@@ -39,13 +50,16 @@ export function createUI(g) {
         d.classList.add('revealed');
         if (c.mine) {
           d.classList.add('mine');
-          d.textContent = '💣';
+          d.textContent = c.marker === 'flag' ? '🚩' : '💣';   // correct flags stay put on a lost board
           if (i === g.explodedIndex) d.classList.add('exploded');
         } else if (c.adjacent > 0) {
           d.classList.add('n' + c.adjacent);
           d.textContent = c.adjacent;
         }
-      } else if (c.marker === 'flag') d.textContent = '🚩';
+      } else if (c.marker === 'flag') {
+        if (g.status === 'lost') { d.classList.add('wrong'); d.textContent = '💣'; }   // spec §4.5
+        else d.textContent = '🚩';
+      }
       else if (c.marker === 'q') d.textContent = '?';
       frag.appendChild(d);
     }
@@ -105,23 +119,25 @@ export function createUI(g) {
       o.connect(gn).connect(a.destination);
       o.start(t); o.stop(t + dur);
     };
-    const noise = (dur) => {
+    const boom = () => {                        // low descending sweep, 280 ms (spec §7.3)
       const a = audio(); if (!a) return;
-      const buf = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-      const src = a.createBufferSource();
-      src.buffer = buf;
+      const t = a.currentTime;
+      const o = a.createOscillator();
       const gn = a.createGain();
-      gn.gain.value = 0.3;
-      src.connect(gn).connect(a.destination);
-      src.start();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(110, t);
+      o.frequency.exponentialRampToValueAtTime(32, t + 0.28);
+      gn.gain.setValueAtTime(0.3, t);
+      gn.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      o.connect(gn).connect(a.destination);
+      o.start(t); o.stop(t + 0.28);
     };
     return {
       click: () => tone(660, 0.06),
       flag: () => tone(440, 0.08),
-      boom: () => noise(0.35),
-      win: () => [523, 659, 784, 1047].forEach((f, k) => tone(f, 0.12, k * 0.09)),
+      question: () => tone(560, 0.05),          // softer, shorter than the flag tick
+      boom,
+      win: () => [523, 659, 784].forEach((f, k) => tone(f, 0.1, k * 0.08)),   // 3 notes, ends at 260 ms
     };
   }
 
@@ -139,7 +155,11 @@ export function createUI(g) {
   function doFlag(i) {
     const before = g.status;
     toggleMarker(g, i);
-    if (g.status === before) sfx.flag();
+    if (g.status === before) {
+      const c = g.grid && g.grid.cells[i];
+      if (c && c.marker === 'q') sfx.question();
+      else sfx.flag();
+    }
     else soundFor(before);
     refresh();
   }
@@ -188,6 +208,17 @@ export function createUI(g) {
   els.board.addEventListener('pointerleave', () => clearTimeout(pressTimer));
   els.board.addEventListener('pointercancel', () => { clearTimeout(pressTimer); longFired = false; });
 
+  // surprised face while a cell is hovered/pressed (spec §7.1); status face otherwise.
+  // Registered after the action listeners so it always settles last on pointerup.
+  const face = (key) => { els.smiley.textContent = FACE[key]; };
+  els.board.addEventListener('pointerover', (e) => { if (cellIndex(e) !== null) face('surprised'); });
+  els.board.addEventListener('pointerout', (e) => {
+    if (!e.relatedTarget || !els.board.contains(e.relatedTarget)) face(g.status);
+  });
+  els.board.addEventListener('pointerdown', (e) => { if (cellIndex(e) !== null) face('surprised'); });
+  els.board.addEventListener('pointerup', () => face(g.status));
+  els.board.addEventListener('pointercancel', () => face(g.status));
+
   // ---------- keyboard (spec §7.5) ----------
 
   const DIRS = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
@@ -208,13 +239,31 @@ export function createUI(g) {
     if (e.key === 'q' || e.key === 'Q') {
       const before = g.status;
       setMarker(g, cursor, 'q');
-      if (g.status === before) sfx.flag();
+      if (g.status === before) {
+        const c = g.grid && g.grid.cells[cursor];
+        if (c && c.marker === 'q') sfx.question();
+        else sfx.flag();
+      }
       refresh();
+    }
+    if (/^[1-8]$/.test(e.key)) {                // spec §4.2: 1–8 chord the cursor cell
+      const before = g.status;
+      chordCell(g, cursor);
+      soundFor(before);
+      refresh();
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'r' || e.key === 'R') {       // spec §4.2: R resets, like the smiley
+      newBoard(g, g.settings);
+      resetCursor();
+      refresh();
+      e.preventDefault();
     }
   });
 
   window.addEventListener('resize', () => {
-    if (g.grid) renderBoard();   // re-fit cell size (spec §7.4)
+    renderBoard();   // re-fit cell size (spec §7.4)
   });
 
   function resetCursor() { cursor = 0; }

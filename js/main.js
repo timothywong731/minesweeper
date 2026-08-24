@@ -46,7 +46,7 @@ $('difficulty').addEventListener('change', (e) => {
   settings.difficulty = e.target.value;
   $('custom').classList.toggle('hidden', settings.difficulty !== 'custom');
   saveSettings(settings);
-  newGame(false);
+  if (settings.difficulty !== 'custom') newGame(false);   // Custom… opens the form; Play starts the board
 });
 
 $('mode').addEventListener('change', (e) => {
